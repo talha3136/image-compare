@@ -4,6 +4,7 @@ pillow
 numpy 
 opencv-python 
 dlib==19.22.0
-face_recognition
+
+setuptools>=56.0.0
 
 deepface
