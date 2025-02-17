@@ -58,7 +58,7 @@ def preprocess_and_save_image_with_landmarks(image_bytes, filename):
         
         temp_dir = tempfile.mkdtemp()
 
-        if not filename.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.tiff')):
+        if not filename.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.tiff','webp')):
             filename = f"{filename}.jpg"
 
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
