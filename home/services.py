@@ -31,6 +31,7 @@ class FileRelatedService:
                 for chunk in response.iter_content(chunk_size=128):
                     temp_file.write(chunk)
                 temp_file.seek(0)
+                print(temp_file.name)
                 
                 return File(temp_file)
             
