@@ -275,7 +275,7 @@ def compare_faces_multiple_models(image1_path, image2_path):
         return False, "Low verification rate or high distance between faces"
     
     confidence = max(0, min(100, (1 - avg_distance) * 100 * verification_rate))
-    return True, f"{confidence:.2f}%"
+    return True, f"{confidence:.2f}"
 
 
 class CompareImagesViewSet(viewsets.GenericViewSet):
@@ -350,4 +350,4 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
         shutil.rmtree(temp_dir1)
         shutil.rmtree(temp_dir2)
         
-        return Response({'result': result, 'confidence': confidence})
+        return Response({'result': result, 'confidence_percentage': confidence})
