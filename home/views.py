@@ -1,5 +1,4 @@
 import shutil
-import tempfile
 import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -26,22 +25,18 @@ from home.services import FileRelatedService
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+UPLOADS_DIR = "uploads"
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def is_blurry(image):
-    """
-    Check if the image is blurry by calculating the variance of the Laplacian.
-    """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     variance = cv2.Laplacian(gray, cv2.CV_64F).var()
     return variance < 100
 
 def enhance_image(image):
-    """
-    Enhance blurry and low-quality images.
-    """
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)
     l, a, b = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
@@ -58,17 +53,14 @@ def preprocess_and_save_image(image_bytes, filename):
         image = Image.open(io.BytesIO(image_bytes))
         image_np = np.array(image)
         image_cv = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
-
         if is_blurry(image_cv):
             image_cv = enhance_image(image_cv)
-
-        temp_dir = tempfile.mkdtemp()
         output_filename = f"processed_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{filename}"
-        output_filepath = os.path.join(temp_dir, output_filename)
+        output_filepath = os.path.join(UPLOADS_DIR, output_filename)
         cv2.imwrite(output_filepath, image_cv)
-        return output_filepath, temp_dir
+        return output_filepath
     except Exception as e:
-        return None, None
+        return None
 
 def compare_faces(image1_path, image2_path):
     try:
@@ -86,48 +78,50 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
         profileImageURL = request.data.get('profileImageURL')
         targetImageURL = request.data.get('targetImageURL')
 
-        profileImage = FileRelatedService.convert_url_to_file(profileImageURL)
-        targetImage = FileRelatedService.convert_url_to_file(targetImageURL)
-        
-        image1_bytes = profileImage.read()
-        image2_bytes = targetImage.read()
-        
-        image1_face_path, temp_dir1 = preprocess_and_save_image(image1_bytes, profileImage.name)
-        image2_face_path, temp_dir2 = preprocess_and_save_image(image2_bytes, targetImage.name)
-        
-        if not image1_face_path or not image2_face_path:
-            return Response({'result': False, 'confidence_percentage': 0.0, 'note': 'Face detection failed.'}, status=200)
-        
-        result, confidence = compare_faces(image1_face_path, image2_face_path)
-        shutil.rmtree(temp_dir1)
-        shutil.rmtree(temp_dir2)
-        
-        note = 'Comparison successful but faces do not match closely.' if not result else 'Comparison successful and faces match closely.'
-        return Response({'result': result, 'confidence_percentage': confidence, 'note': note}, status=200)
+        profileImagePath = FileRelatedService.convert_url_to_file(profileImageURL)
+        targetImagePath = FileRelatedService.convert_url_to_file(targetImageURL)
+
+        if profileImagePath and targetImagePath:
+            try:
+                # Open the file at the file path and read its content
+                with open(profileImagePath, 'rb') as profileImage:
+                    image1_bytes = profileImage.read()  # Read file content
+
+                with open(targetImagePath, 'rb') as targetImage:
+                    image2_bytes = targetImage.read()  # Read file content
+
+                # Proceed with the image processing
+                image1_face_path = preprocess_and_save_image(image1_bytes, os.path.basename(profileImagePath))
+                image2_face_path = preprocess_and_save_image(image2_bytes, os.path.basename(targetImagePath))
+                
+                if not image1_face_path or not image2_face_path:
+                    return Response({'result': False, 'confidence_percentage': 0.0, 'note': 'Face detection failed.'}, status=200)
+
+                result, confidence = compare_faces(image1_face_path, image2_face_path)
+                note = 'Comparison successful but faces do not match closely.' if not result else 'Comparison successful and faces match closely.'
+                return Response({'result': result, 'confidence_percentage': confidence, 'note': note}, status=200)
+            
+            except Exception as e:
+                return Response({'error': f'Error processing images: {str(e)}'}, status=500)
+
+        return Response({'error': 'Unable to retrieve images from URLs'}, status=400)
+
+
 
     @action(detail=False, methods=['POST'], url_path='compare-image', serializer_class=ImageSerializer)
     def compare_image_file(self, request):
         if 'profileImage' not in request.FILES or 'targetImage' not in request.FILES:
             return Response({'error': 'Please upload two images'}, status=400)
-        
         profileImage = request.FILES['profileImage']
         targetImage = request.FILES['targetImage']
-        
         if not (allowed_file(targetImage.name) and allowed_file(profileImage.name)):
             return Response({'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif'}, status=400)
-        
         image1_bytes = profileImage.read()
         image2_bytes = targetImage.read()
-        
-        image1_face_path, temp_dir1 = preprocess_and_save_image(image1_bytes, profileImage.name)
-        image2_face_path, temp_dir2 = preprocess_and_save_image(image2_bytes, targetImage.name)
-        
+        image1_face_path = preprocess_and_save_image(image1_bytes, profileImage.name)
+        image2_face_path = preprocess_and_save_image(image2_bytes, targetImage.name)
         if not image1_face_path or not image2_face_path:
             return Response({'result': False, 'confidence_percentage': 0.0, 'note': 'Face detection failed.'}, status=200)
-        
         result, confidence = compare_faces(image1_face_path, image2_face_path)
-        shutil.rmtree(temp_dir1)
-        shutil.rmtree(temp_dir2)
-        
         note = 'Comparison successful but faces do not match closely.' if not result else 'Comparison successful and faces match closely.'
         return Response({'result': result, 'confidence_percentage': confidence, 'note': note}, status=200)
