@@ -71,51 +71,96 @@ def is_blurry(image):
     variance = cv2.Laplacian(gray, cv2.CV_64F).var()
     return variance < 100  # Threshold value for blurriness, can be adjusted
 
+def adjust_gamma(image, gamma=1.0):
+    invGamma = 1.0 / gamma
+    table = np.array([(i / 255.0) ** invGamma * 255 for i in np.arange(0, 256)]).astype("uint8")
+    return cv2.LUT(image, table)
 
 def enhance_image(image):
     """
-    Enhance blurry images by applying sharpening filter, contrast enhancement, and unsharp masking.
+    Enhance blurry and low-quality images by applying sharpening filter, 
+    contrast enhancement, noise reduction, and unsharp masking.
     """
-
-    # Sharpening using stronger kernel
-    kernel = np.array([[-1, -1, -1],
-                       [-1,  9, -1],
-                       [-1, -1, -1]])
-    sharpened_image = cv2.filter2D(image, -1, kernel)
-
-    # Increase the contrast of the image
-    lab = cv2.cvtColor(sharpened_image, cv2.COLOR_BGR2Lab)
+    
+    # Convert to LAB color space to adjust contrast
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2Lab)
     l, a, b = cv2.split(lab)
-    l = cv2.equalizeHist(l)
-    enhanced_image = cv2.merge((l, a, b))
-    enhanced_image = cv2.cvtColor(enhanced_image, cv2.COLOR_Lab2BGR)
 
-    # Unsharp Masking for additional enhancement
-    blurred = cv2.GaussianBlur(enhanced_image, (9, 9), 10.0)
-    unsharp_image = cv2.addWeighted(enhanced_image, 1.5, blurred, -0.5, 0)
+    # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) for better contrast
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    l = clahe.apply(l)
 
+    # Merge and convert back to BGR
+    lab = cv2.merge((l, a, b))
+    contrast_enhanced = cv2.cvtColor(lab, cv2.COLOR_Lab2BGR)
+    
+    # Adjust brightness using Gamma correction
+    mean_brightness = np.mean(cv2.cvtColor(contrast_enhanced, cv2.COLOR_BGR2GRAY))
+    gamma = 1.5 if mean_brightness < 100 else 0.8 if mean_brightness > 180 else 1.0
+    contrast_enhanced = adjust_gamma(contrast_enhanced, gamma)
+    
+    # Sharpening using a stronger kernel
+    sharpen_kernel = np.array([[0, -1, 0],
+                               [-1, 5, -1],
+                               [0, -1, 0]])
+    sharpened = cv2.filter2D(contrast_enhanced, -1, sharpen_kernel)
+    
+    # Noise reduction using bilateral filter
+    denoised = cv2.bilateralFilter(sharpened, d=9, sigmaColor=50, sigmaSpace=50)
+    
+    # Unsharp Masking for additional clarity
+    blurred = cv2.GaussianBlur(denoised, (5, 5), 10.0)
+    unsharp_image = cv2.addWeighted(denoised, 1.7, blurred, -0.7, 0)
+    
     return unsharp_image
 
+
+cnn_model_path = "mmod_human_face_detector.dat"
+dlib_model_path = "shape_predictor_68_face_landmarks.dat"
+
+if os.path.exists(cnn_model_path):
+    detector = dlib.cnn_face_detection_model_v1(cnn_model_path)
+    use_cnn = True
+else:
+    detector = dlib.get_frontal_face_detector()
+    use_cnn = False
+
+if os.path.exists(dlib_model_path):
+    predictor = dlib.shape_predictor(dlib_model_path)
+else:
+    raise FileNotFoundError("Shape predictor model not found!")
 
 def draw_face_landmarks(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     faces = detector(gray)
-    cropped_faces = []  
+    cropped_faces = []
+    
+    if use_cnn:
+        faces = [d.rect for d in faces]  # Extract rectangle from CNN detection
+    
+    if isinstance(faces, list) and not faces:
+        # Use OpenCV Haar Cascade as a fallback
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        detected_faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        for (x, y, w, h) in detected_faces:
+            faces.append(dlib.rectangle(x, y, x+w, y+h))
     
     for face in faces:
-        x1, y1, x2, y2 = (face.left(), face.top(), face.right(), face.bottom())
+        x1, y1, x2, y2 = max(0, face.left()-20), max(0, face.top()-20), min(image.shape[1], face.right()+20), min(image.shape[0], face.bottom()+20)
         cropped_face = image[y1:y2, x1:x2]
         cropped_faces.append(cropped_face)
         
         landmarks = predictor(gray, face)
         for n in range(68):
-            x, y = landmarks.part(n).x, landmarks.part(n).y
-            cv2.circle(cropped_face, (x - x1, y - y1), 1, (0, 255, 0), -1)
+            x, y = landmarks.part(n).x - x1, landmarks.part(n).y - y1
+            cv2.circle(cropped_face, (x, y), 1, (0, 255, 0), -1)
     
     if not cropped_faces:
         return image, "No face detected"
     
-    return cropped_faces[0], None  # Return the cropped face
+    return cropped_faces[0], None
+
+
 
 
 def preprocess_and_save_image_with_landmarks(image_bytes, filename):
@@ -162,7 +207,7 @@ def compare_faces_multiple_models(image1_path, image2_path):
             print(f"Error with {model} model: {e}")
     
     if not results:
-        return False, "No valid comparisons were made"
+        return False, 0.0
     
     verified_count = sum(1 for result in results if result['verified'])
     verification_rate = verified_count / len(results)
