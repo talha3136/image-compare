@@ -170,7 +170,7 @@ def compare_faces_multiple_models(image1_path, image2_path):
     avg_distance = np.mean(distances) if distances else 1.0
     
     if verification_rate <= 0.5 or avg_distance >= 0.5:
-        return False, "Low verification rate or high distance between faces"
+        return False, 0.0
     
     confidence = max(0, min(100, (1 - avg_distance) * 100 * verification_rate))
     return True, f"{confidence:.2f}"
