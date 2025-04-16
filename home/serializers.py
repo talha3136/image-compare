@@ -12,3 +12,10 @@ class ImageSerializer(serializers.Serializer):
     profileImage = serializers.FileField()
     targetImage = serializers.FileField()
 
+
+class uniformVerifyImageSerializer(serializers.Serializer):
+    image = serializers.ImageField(required=True)
+
+
+class uniformVerifyImageUrlSerializer(serializers.Serializer):
+    imageURL = serializers.URLField(required=True)

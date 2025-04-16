@@ -1,0 +1,343 @@
+import torch
+import clip
+from PIL import Image
+import os
+
+# Step 1: Load the CLIP model
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model, preprocess = clip.load("ViT-B/32", device=device)
+
+# Step 2: Define the path to your Downloads folder
+downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+image_path = os.path.join(downloads_folder, "Untitled 1.jpg")
+
+# Step 3: Load and preprocess the image
+try:
+    image = Image.open(image_path).convert("RGB")
+except FileNotFoundError:
+    raise FileNotFoundError(f"❌ Image not found at: {image_path}")
+
+# Optional: Show the image
+image.show()
+
+# Step 4: Preprocess image for CLIP
+image_input = preprocess(image).unsqueeze(0).to(device)
+
+# Step 5: Define text prompts
+text_prompts = ["a person wearing formal clothes", "a person wearing casual clothes"]
+text_tokens = clip.tokenize(text_prompts).to(device)
+
+# Step 6: Run CLIP on image and text
+with torch.no_grad():
+    image_features = model.encode_image(image_input)
+    text_features = model.encode_text(text_tokens)
+
+    # Compute similarity
+    logits_per_image, _ = model(image_input, text_tokens)
+    probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+
+# Step 7: Print results
+for label, prob in zip(text_prompts, probs[0]):
+    print(f"{label}: {prob:.4f}")
+
+# Step 8: Final classification
+final = text_prompts[probs[0].argmax()]
+print(f"\n👕 This person is most likely: **{final.split()[-2].upper()}** dressed.")
+
+
+
+
+
+
+
+
+pip install torch torchvision
+pip install git+https://github.com/openai/CLIP.git
+pip install pillow
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import torch
+import clip
+from PIL import Image
+import os
+
+# Step 1: Load the CLIP model
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model, preprocess = clip.load("ViT-B/32", device=device)
+
+# Step 2: Define the path to your Downloads folder
+downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+image_path = os.path.join(downloads_folder, "Untitled 1.jpg")
+
+# Step 3: Load and preprocess the image
+try:
+    image = Image.open(image_path).convert("RGB")
+except FileNotFoundError:
+    raise FileNotFoundError(f"❌ Image not found at: {image_path}")
+
+# Optional: Show the image
+image.show()
+
+# Step 4: Preprocess the image for CLIP
+image_input = preprocess(image).unsqueeze(0).to(device)
+
+# Step 5: Define text prompts
+text_prompts = [
+    "a person wearing formal clothes",
+    "a person wearing casual clothes",
+    "a person wearing business casual clothes",
+    "a person wearing a suit",
+    "a person wearing a hoodie and jeans",
+    "a person wearing sportswear"
+]
+text_tokens = clip.tokenize(text_prompts).to(device)
+
+# Step 6: Run CLIP on image and text
+with torch.no_grad():
+    image_features = model.encode_image(image_input)
+    text_features = model.encode_text(text_tokens)
+
+    # Compute similarity
+    logits_per_image, _ = model(image_input, text_tokens)
+    probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+
+# Step 7: Print results
+for label, prob in zip(text_prompts, probs[0]):
+    print(f"{label}: {prob:.4f}")
+
+# Step 8: Final classification
+best_label_index = probs[0].argmax()
+final_label = text_prompts[best_label_index]
+final_description = final_label.split(' ')[-2]  # Extracts 'formal' or 'casual' or other description
+confidence = probs[0][best_label_index]
+
+print(f"\n👕 **{final_description.upper()}** dressed.")
+print(f"Detailed description: '{final_label}'")
+print(f"Confidence: {confidence:.2f}")
+
+import clip
+from PIL import Image
+import os
+
+# Step 1: Load the CLIP model
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model, preprocess = clip.load("ViT-B/32", device=device)
+
+# Step 2: Define the path to your Downloads folder
+downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+image_path = os.path.join(downloads_folder, "Untitled 1.jpg")
+
+# Step 3: Load and preprocess the image
+try:
+    image = Image.open(image_path).convert("RGB")
+except FileNotFoundError:
+    raise FileNotFoundError(f"❌ Image not found at: {image_path}")
+
+# Optional: Show the image
+image.show()
+
+# Step 4: Preprocess image for CLIP
+image_input = preprocess(image).unsqueeze(0).to(device)
+
+# Step 5: Define text prompts
+text_prompts = ["a person wearing formal clothes", "a person wearing casual clothes"]
+text_tokens = clip.tokenize(text_prompts).to(device)
+
+# Step 6: Run CLIP on image and text
+with torch.no_grad():
+    image_features = model.encode_image(image_input)
+    text_features = model.encode_text(text_tokens)
+
+    # Compute similarity
+    logits_per_image, _ = model(image_input, text_tokens)
+    probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+
+# Step 7: Print results
+for label, prob in zip(text_prompts, probs[0]):
+    print(f"{label}: {prob:.4f}")
+
+# Step 8: Final classification
+final = text_prompts[probs[0].argmax()]
+print(f"\n👕 This person is most likely: **{final.split()[-2].upper()}** dressed.")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import torch
+import clip
+from PIL import Image
+import os
+
+# Step 1: Load the CLIP model
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model, preprocess = clip.load("ViT-B/32", device=device)
+
+# Step 2: Define the path to your Downloads folder
+downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+image_path = os.path.join(downloads_folder, "security_uniform1.jpeg")
+
+# Step 3: Load and preprocess the image
+try:
+    image = Image.open(image_path).convert("RGB")
+except FileNotFoundError:
+    raise FileNotFoundError(f"❌ Image not found at: {image_path}")
+
+# Optional: Show the image
+image.show()
+
+# Step 4: Preprocess image for CLIP
+image_input = preprocess(image).unsqueeze(0).to(device)
+
+# Step 5: Define text prompts (UK security uniform vs. not)
+text_prompts = [
+    "a person wearing a UK security officer uniform",
+    "a person not wearing a UK security officer uniform"
+]
+text_tokens = clip.tokenize(text_prompts).to(device)
+
+# Step 6: Run CLIP on image and text
+with torch.no_grad():
+    image_features = model.encode_image(image_input)
+    text_features = model.encode_text(text_tokens)
+
+    # Compute similarity
+    logits_per_image, _ = model(image_input, text_tokens)
+    probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+
+# Step 7: Print results
+print("\n🔍 Classification Probabilities:")
+for label, prob in zip(text_prompts, probs[0]):
+    print(f"{label}: {prob:.4f}")
+
+# Step 8: Final classification
+final = text_prompts[probs[0].argmax()]
+if "not" in final:
+    result = "❌ NOT wearing a UK security officer uniform."
+else:
+    result = "✅ Wearing a UK security officer uniform."
+print(f"\n🧥 Result: {result}")
+
+
+
+
+
+
+
+
+import torch
+from PIL import Image
+from transformers import BlipProcessor, BlipForConditionalGeneration
+import os
+
+# Load BLIP model and processor
+processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+
+# Load image
+downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+image_path = os.path.join(downloads_path, "1000050060 (2).jpg")
+image = Image.open(image_path).convert("RGB")
+
+# Prepare inputs
+inputs = processor(images=image, return_tensors="pt")
+
+# Generate description
+with torch.no_grad():
+    out = model.generate(**inputs, max_new_tokens=50)
+
+# Decode the caption
+caption = processor.decode(out[0], skip_special_tokens=True)
+print("Description:", caption)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# this is working fine
+import torch
+import clip
+from PIL import Image
+import os
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model, preprocess = clip.load("ViT-B/32", device=device)
+
+# Image path configuration
+downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+image_path = os.path.join(downloads_folder, "2025-02-21_1158100000-arezCapturedImage.jpg")
+
+try:
+    image = Image.open(image_path).convert("RGB")
+except FileNotFoundError:
+    raise FileNotFoundError(f"❌ Image not found at: {image_path}")
+
+# Preprocess image
+image_input = preprocess(image).unsqueeze(0).to(device)
+
+# Updated text prompts with core requirements
+text_prompts = [
+    # Primary uniform requirements
+    "a UK security officer wearing a crisp white dress shirt and black tie, with formal trousers, with or without jacket, may have security badges or epaulettes",
+    
+    # Negative case
+    "a person in casual clothes without white shirt and black tie: t-shirts, sweaters, jeans, hoodies, or informal attire"
+]
+
+text_tokens = clip.tokenize(text_prompts).to(device)
+
+with torch.no_grad():
+    logits_per_image, _ = model(image_input, text_tokens)
+    probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+
+# Results interpretation
+required_elements = ["White dress shirt", "Black tie", "Formal trousers"]
+optional_elements = ["Security jacket", "Epaulettes", "Badge"]
+
+print("\nUniform Verification Checklist:")
+print("Mandatory Components:")
+print("- " + "\n- ".join(required_elements))
+print("\nOptional Components:")
+print("- " + "\n- ".join(optional_elements))
+
+confidence = probs[0][0]
+if confidence >= 0.65:  # Slightly lower threshold for flexibility
+    print(f"\n✅ UK Security Uniform Detected (Confidence: {confidence:.2%})")
+    print("Core elements present: white shirt and black tie")
+else:
+    print(f"\n❌ Not Recognized as Security Uniform (Confidence: {1-confidence:.2%})")
+    print("Missing required white shirt and black tie combination")

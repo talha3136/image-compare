@@ -1,6 +1,6 @@
 import os
 
-from home.serializers import ImageSerializer, ImageUrlSerializer
+from home.serializers import ImageSerializer, ImageUrlSerializer, uniformVerifyImageSerializer, uniformVerifyImageUrlSerializer
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import io
@@ -15,6 +15,14 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from home.services import FileRelatedService
+import requests
+import torch
+import clip
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+# Load CLIP model
+model, preprocess = clip.load("ViT-B/32", device=device)
 
 # Load dlib face detector and shape predictor
 detector = dlib.get_frontal_face_detector()
@@ -79,9 +87,164 @@ def compare_faces(image1_path, image2_path):
         if os.path.exists(image2_path):
             os.remove(image2_path)
 
+
+def save_uploaded_image(image_bytes, filename):
+    """Save uploaded image to disk and return filepath"""
+    output_filename = f"uniform_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{filename}"
+    output_filepath = os.path.join(UPLOADS_DIR, output_filename)
+    
+    with open(output_filepath, "wb") as f:
+        f.write(image_bytes)
+    
+    return output_filepath
+
+
+            
+def verify_uniform(image_path, threshold=0.65):
+    """Verify if image shows security uniform and return results"""
+    try:
+        # Load and preprocess image
+        image = Image.open(image_path).convert("RGB")
+        image_input = preprocess(image).unsqueeze(0).to(device)
+        
+        # Text prompts for CLIP
+        text_prompts = [
+            # Security uniform description
+            "a UK security officer wearing a crisp white dress shirt and black tie, with formal trousers, with or without jacket, may have security badges or epaulettes",
+            
+            # Negative case
+            "a person in casual clothes without white shirt and black tie: t-shirts, sweaters, jeans, hoodies, or informal attire"
+        ]
+        
+        text_tokens = clip.tokenize(text_prompts).to(device)
+        
+        # Get prediction
+        with torch.no_grad():
+            logits_per_image, _ = model(image_input, text_tokens)
+            probs = logits_per_image.softmax(dim=-1).cpu().numpy()
+        
+        # Calculate result
+        confidence = float(probs[0][0])
+        result = confidence >= threshold
+        confidence_percentage = f"{confidence*100:.2f}"
+        
+        # Define uniform elements
+        required_elements = ["White dress shirt", "Black tie", "Formal trousers"]
+        optional_elements = ["Security jacket", "Epaulettes", "Badge"]
+        
+        # Determine missing elements
+        missing_elements = []
+        if not result:
+            missing_elements = ["White dress shirt and black tie"] if confidence < 0.5 else ["One or more key uniform elements"]
+        
+        # Create response message
+        if result:
+            note = "Uniform verification successful. Security uniform detected with proper white shirt and black tie."
+        else:
+            note = "Verification completed but security uniform not detected. Missing required elements."
+        
+        return result, confidence_percentage, note, required_elements, optional_elements, missing_elements
+    
+    except Exception as e:
+        return False, "0.00", f"Error during verification: {str(e)}", [], [], []
+    finally:
+        # Clean up the file
+        if os.path.exists(image_path):
+            os.remove(image_path)
+
 class CompareImagesViewSet(viewsets.GenericViewSet):
     serializer_class = ImageSerializer
     parser_classes = (MultiPartParser, FormParser)
+
+    @action(
+        detail=False, 
+        methods=['POST'],
+        url_path='verify', 
+        serializer_class=uniformVerifyImageSerializer
+    )
+    def verify_uniform_image(self, request):
+        """Verify security uniform from uploaded image file"""
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({'error': serializer.errors}, status=400)
+        
+        image = request.FILES.get('image')
+        threshold =  0.65
+        
+        if not image:
+            return Response({'error': 'No image file provided'}, status=400)
+        
+        if not allowed_file(image.name):
+            return Response({'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'}, status=400)
+        
+        try:
+            # Save and process the image
+            image_bytes = image.read()
+            image_path = save_uploaded_image(image_bytes, image.name)
+            
+            # Verify uniform
+            result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold)
+            
+            return Response({
+                'result': result,
+                'confidence_percentage': confidence,
+                'note': note,
+                'required_elements': required,
+                'optional_elements': optional,
+                'missing_elements': missing
+            }, status=200)
+            
+        except Exception as e:
+            return Response({'error': f'Image processing error: {str(e)}'}, status=500)
+    
+    @action(
+        detail=False, 
+        methods=['POST'],
+        url_path='verify-url', 
+        serializer_class=uniformVerifyImageUrlSerializer
+    )
+    def verify_uniform_url(self, request):
+        """Verify security uniform from image URL"""
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({'error': serializer.errors}, status=400)
+        
+        image_url = serializer.validated_data.get('imageURL')
+        threshold = 0.65
+        
+        if not image_url:
+            return Response({'error': 'No image URL provided'}, status=400)
+        
+        try:
+
+            
+            response = requests.get(image_url, timeout=10)
+            if response.status_code != 200:
+                return Response({'error': 'Failed to download image from URL'}, status=400)
+            
+            # Extract filename from URL
+            url_path = image_url.split('?')[0]  
+            filename = url_path.split('/')[-1]
+            if not allowed_file(filename):
+                filename = "downloaded_image.jpg" 
+            
+            # Save and process the image
+            image_path = save_uploaded_image(response.content, filename)
+            
+            # Verify uniform
+            result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold)
+            
+            return Response({
+                'result': result,
+                'confidence_percentage': confidence,
+                'note': note,
+                'required_elements': required,
+                'optional_elements': optional,
+                'missing_elements': missing
+            }, status=200)
+            
+        except Exception as e:
+            return Response({'error': f'Image processing error: {str(e)}'}, status=500)
     
     @action(
         detail=False, 
