@@ -112,7 +112,7 @@ termcolor==3.0.1
 tf_keras==2.19.0
 timm==1.0.15
 tokenizers==0.21.1
-torch==2.6.0
+
 torchvision==0.21.0
 tqdm==4.67.1
 transformers==4.51.3
