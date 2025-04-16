@@ -139,7 +139,9 @@ def verify_uniform(image_path, threshold=0.65):
         
         # Create response message
         if result:
-            note = "Uniform verification successful. Security uniform detected with proper white shirt and black tie."
+            # note = "Uniform verification successful. Security uniform detected with proper white shirt and black tie."
+            note = "Uniform verification successful. Security uniform detected."
+
         else:
             note = "Verification completed but security uniform not detected. Missing required elements."
         
@@ -189,9 +191,9 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
                 'result': result,
                 'confidence_percentage': confidence,
                 'note': note,
-                'required_elements': required,
-                'optional_elements': optional,
-                'missing_elements': missing
+                # 'required_elements': required,
+                # 'optional_elements': optional,
+                # 'missing_elements': missing
             }, status=200)
             
         except Exception as e:
@@ -238,9 +240,9 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
                 'result': result,
                 'confidence_percentage': confidence,
                 'note': note,
-                'required_elements': required,
-                'optional_elements': optional,
-                'missing_elements': missing
+                # 'required_elements': required,
+                # 'optional_elements': optional,
+                # 'missing_elements': missing
             }, status=200)
             
         except Exception as e:
