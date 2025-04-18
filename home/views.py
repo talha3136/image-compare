@@ -1,199 +1,14 @@
 import os
-
 from home.serializers import ImageSerializer, ImageUrlSerializer, uniformVerifyImageSerializer, uniformVerifyImageUrlSerializer
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import io
-import cv2
-import dlib
-import numpy as np
-from PIL import Image, ImageEnhance,ExifTags
-from datetime import datetime
-from deepface import DeepFace
 from rest_framework import viewsets
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from home.services import FileRelatedService
 import requests
-import torch
-import clip
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-# Load CLIP model
-model, preprocess = clip.load("ViT-B/32", device=device)
-
-# Load dlib face detector and shape predictor
-detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-UPLOADS_DIR = "uploads"
-os.makedirs(UPLOADS_DIR, exist_ok=True)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def is_blurry(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    variance = cv2.Laplacian(gray, cv2.CV_64F).var()
-    return variance < 100
-
-def enhance_image(image):
-    pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    enhancer = ImageEnhance.Sharpness(pil_image)
-    sharp_image = enhancer.enhance(2.0)
-    enhancer = ImageEnhance.Contrast(sharp_image)
-    contrast_image = enhancer.enhance(1.5)
-    return cv2.cvtColor(np.array(contrast_image), cv2.COLOR_RGB2BGR)
-
-def auto_rotate_image(image):
-    """ Auto-rotate image using EXIF metadata """
-    try:
-        for orientation in ExifTags.TAGS.keys():
-            if ExifTags.TAGS[orientation] == 'Orientation':
-                break
-        exif = image._getexif()
-        if exif is not None:
-            orientation = exif.get(orientation, None)
-            if orientation == 3:
-                image = image.rotate(180, expand=True)
-            elif orientation == 6:
-                image = image.rotate(270, expand=True)
-            elif orientation == 8:
-                image = image.rotate(90, expand=True)
-    except Exception:
-        pass  # Ignore if EXIF metadata is missing
-    return image
-
-def is_flipped(image):
-    """ Detect if an image is flipped using face landmarks symmetry """
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    faces = detector(gray)
-    if len(faces) == 0:
-        return False  # No face detected, assume not flipped
-
-    for face in faces:
-        landmarks = predictor(gray, face)
-        left_eye_x = (landmarks.part(36).x + landmarks.part(39).x) / 2
-        right_eye_x = (landmarks.part(42).x + landmarks.part(45).x) / 2
-        return left_eye_x > right_eye_x  # True if flipped
-
-    return False
-
-def preprocess_and_save_image(image_bytes, filename):
-    try:
-        image = Image.open(io.BytesIO(image_bytes))
-        image = auto_rotate_image(image)  # Fix rotation
-        image_np = np.array(image)
-        image_cv = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
-
-        if is_flipped(image_cv):
-            image_cv = cv2.flip(image_cv, 1)  # Fix flipped image
-
-        if is_blurry(image_cv):
-            image_cv = enhance_image(image_cv)
-
-        output_filename = f"processed_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{filename}"
-        output_filepath = os.path.join(UPLOADS_DIR, output_filename)
-        cv2.imwrite(output_filepath, image_cv)
-        return output_filepath
-    except Exception:
-        return None
-
-def compare_faces(image1_path, image2_path):
-    models = ["Facenet512", "OpenFace", "ArcFace"]
-    results = []
-
-    try:
-        for model_name in models:
-            try:
-                result = DeepFace.verify(img1_path=image1_path, img2_path=image2_path, model_name=model_name, detector_backend="retinaface")
-                verified = result.get('verified', False)
-                distance = result.get('distance', None)
-                results.append((model_name, verified, distance))
-            except Exception:
-                results.append((model_name, False, None))
-
-        verified_count = sum(1 for _, verified, _ in results if verified)
-        total_models = len(models)
-        result = verified_count >= total_models / 2
-        confidence = sum([(1 - distance) * 100 if distance is not None else 0 for _, _, distance in results]) / len(results)
-        note = "Faces match closely." if result else "Faces do not match closely."
-
-        return result, f"{confidence:.2f}", note
-    finally:
-        if os.path.exists(image1_path):
-            os.remove(image1_path)
-        if os.path.exists(image2_path):
-            os.remove(image2_path)
+from home.support_services import allowed_file, compare_faces, preprocess_and_save_image,verify_uniform,save_uploaded_image
 
 
-def save_uploaded_image(image_bytes, filename):
-    """Save uploaded image to disk and return filepath"""
-    output_filename = f"uniform_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{filename}"
-    output_filepath = os.path.join(UPLOADS_DIR, output_filename)
-    
-    with open(output_filepath, "wb") as f:
-        f.write(image_bytes)
-    
-    return output_filepath
-
-
-            
-def verify_uniform(image_path, threshold=0.65):
-    """Verify if image shows security uniform and return results"""
-    try:
-        # Load and preprocess image
-        image = Image.open(image_path).convert("RGB")
-        image_input = preprocess(image).unsqueeze(0).to(device)
-        
-        # Text prompts for CLIP
-        text_prompts = [
-            # Security uniform description
-            "a UK security officer wearing a crisp white dress shirt and black tie, with formal trousers, with or without jacket, may have security badges or epaulettes",
-            
-            # Negative case
-            "a person in casual clothes without white shirt and black tie: t-shirts, sweaters, jeans, hoodies, or informal attire"
-        ]
-        
-        text_tokens = clip.tokenize(text_prompts).to(device)
-        
-        # Get prediction
-        with torch.no_grad():
-            logits_per_image, _ = model(image_input, text_tokens)
-            probs = logits_per_image.softmax(dim=-1).cpu().numpy()
-        
-        # Calculate result
-        confidence = float(probs[0][0])
-        result = confidence >= threshold
-        confidence_percentage = f"{confidence*100:.2f}"
-        
-        # Define uniform elements
-        required_elements = ["White dress shirt", "Black tie", "Formal trousers"]
-        optional_elements = ["Security jacket", "Epaulettes", "Badge"]
-        
-        # Determine missing elements
-        missing_elements = []
-        if not result:
-            missing_elements = ["White dress shirt and black tie"] if confidence < 0.5 else ["One or more key uniform elements"]
-        
-        # Create response message
-        if result:
-            # note = "Uniform verification successful. Security uniform detected with proper white shirt and black tie."
-            note = "Uniform verification successful. Security uniform detected."
-
-        else:
-            note = "Verification completed but security uniform not detected. Missing required elements."
-        
-        return result, confidence_percentage, note, required_elements, optional_elements, missing_elements
-    
-    except Exception as e:
-        return False, "0.00", f"Error during verification: {str(e)}", [], [], []
-    finally:
-        # Clean up the file
-        if os.path.exists(image_path):
-            os.remove(image_path)
 
 class CompareImagesViewSet(viewsets.GenericViewSet):
     serializer_class = ImageSerializer
@@ -213,6 +28,7 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
         
         image = request.FILES.get('image')
         threshold =  0.65
+        text_prompt = request.data.get('text_prompt')
         
         if not image:
             return Response({'error': 'No image file provided'}, status=400)
@@ -226,7 +42,7 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
             image_path = save_uploaded_image(image_bytes, image.name)
             
             # Verify uniform
-            result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold)
+            result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold,text_prompt)
             
             return Response({
                 'result': result,
@@ -254,13 +70,14 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
         
         image_url = serializer.validated_data.get('imageURL')
         threshold = 0.65
+        text_prompt = request.data.get('text_prompt')
+
         
         if not image_url:
             return Response({'error': 'No image URL provided'}, status=400)
         
         try:
 
-            
             response = requests.get(image_url, timeout=10)
             if response.status_code != 200:
                 return Response({'error': 'Failed to download image from URL'}, status=400)
@@ -275,7 +92,7 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
             image_path = save_uploaded_image(response.content, filename)
             
             # Verify uniform
-            result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold)
+            result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold,text_prompt)
             
             return Response({
                 'result': result,
