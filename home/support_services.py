@@ -163,8 +163,8 @@ def verify_uniform(image_path, threshold=0.65, user_prompt=None):
         confidence_percentage = f"{confidence*100:.2f}"
         
         # Dummy elements - would ideally be extracted based on prompt
-        required_elements = ["White dress shirt", "Black tie"]
-        optional_elements = ["Security jacket", "Epaulettes", "Badge"]
+        # required_elements = ["White dress shirt", "Black tie"]
+        # optional_elements = ["Security jacket", "Epaulettes", "Badge"]
         
         # Determine missing elements
         missing_elements = []
@@ -174,7 +174,9 @@ def verify_uniform(image_path, threshold=0.65, user_prompt=None):
         # Create response message
         note = "Uniform verification successful. Security uniform detected." if result else "Verification completed but security uniform not detected. Missing required elements."
         
-        return result, confidence_percentage, note, required_elements, optional_elements, missing_elements
+        # return result, confidence_percentage, note, required_elements, optional_elements, missing_elements
+        return result, confidence_percentage, note, missing_elements
+
     
     except Exception as e:
         return False, "0.00", f"Error during verification: {str(e)}", [], [], []

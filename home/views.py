@@ -42,7 +42,9 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
             image_path = save_uploaded_image(image_bytes, image.name)
             
             # Verify uniform
-            result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold,text_prompt)
+            # result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold,text_prompt)
+            result, confidence, note, missing = verify_uniform(image_path, threshold,text_prompt)
+
             
             return Response({
                 'result': result,
@@ -92,7 +94,9 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
             image_path = save_uploaded_image(response.content, filename)
             
             # Verify uniform
-            result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold,text_prompt)
+            # result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold,text_prompt)
+            result, confidence, note,  missing = verify_uniform(image_path, threshold,text_prompt)
+
             
             return Response({
                 'result': result,
