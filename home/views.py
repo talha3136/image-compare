@@ -12,7 +12,7 @@ from .support_services import allowed_file, compare_faces, preprocess_and_save_i
 from .utils import DefaultPagination
 from django.core.files.base import ContentFile
 # test
-class uniformCheckerViewset(viewsets.GenericViewSet,mixins.ListModelMixin):
+class uniformCheckerViewset(viewsets.GenericViewSet,mixins.ListModelMixin,mixins.DestroyModelMixin):
     queryset = uniformChecker.objects.all()
     serializer_class = uniformCheckerSerializer
     parser_classes = (MultiPartParser, FormParser)
