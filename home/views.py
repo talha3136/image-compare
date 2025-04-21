@@ -11,7 +11,7 @@ import requests
 from .support_services import allowed_file, compare_faces, preprocess_and_save_image,verify_uniform,save_uploaded_image,ALLOWED_EXTENSIONS
 from .utils import DefaultPagination
 from django.core.files.base import ContentFile
-
+# test
 class uniformCheckerViewset(viewsets.GenericViewSet,mixins.ListModelMixin):
     queryset = uniformChecker.objects.all()
     serializer_class = uniformCheckerSerializer
