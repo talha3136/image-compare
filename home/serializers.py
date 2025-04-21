@@ -1,4 +1,7 @@
 from rest_framework import serializers
+from django.db import models
+
+from home.models import uniformChecker
 
 
 
@@ -22,3 +25,9 @@ class uniformVerifyImageUrlSerializer(serializers.Serializer):
     imageURL = serializers.URLField(required=True)
     text_prompt = serializers.CharField(required=False)
 
+class uniformCheckerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = uniformChecker
+        fields = '__all__'
+
+        

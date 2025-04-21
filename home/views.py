@@ -1,23 +1,27 @@
+
 import os
-from home.serializers import ImageSerializer, ImageUrlSerializer, uniformVerifyImageSerializer, uniformVerifyImageUrlSerializer
-from rest_framework import viewsets
+from .models import uniformChecker
+from .serializers import ImageSerializer, ImageUrlSerializer, uniformCheckerSerializer, uniformVerifyImageSerializer, uniformVerifyImageUrlSerializer
+from rest_framework import viewsets,mixins
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from home.services import FileRelatedService
+from .services import FileRelatedService
 import requests
-from home.support_services import allowed_file, compare_faces, preprocess_and_save_image,verify_uniform,save_uploaded_image
+from .support_services import allowed_file, compare_faces, preprocess_and_save_image,verify_uniform,save_uploaded_image,ALLOWED_EXTENSIONS
+from .utils import DefaultPagination
+from django.core.files.base import ContentFile
 
-
-
-class CompareImagesViewSet(viewsets.GenericViewSet):
-    serializer_class = ImageSerializer
+class uniformCheckerViewset(viewsets.GenericViewSet,mixins.ListModelMixin):
+    queryset = uniformChecker.objects.all()
+    serializer_class = uniformCheckerSerializer
     parser_classes = (MultiPartParser, FormParser)
+    pagination_class = DefaultPagination
 
     @action(
         detail=False, 
         methods=['POST'],
-        url_path='verify', 
+        url_path='verify-uniform-with-image', 
         serializer_class=uniformVerifyImageSerializer
     )
     def verify_uniform_image(self, request):
@@ -27,41 +31,49 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
             return Response({'error': serializer.errors}, status=400)
         
         image = request.FILES.get('image')
-        threshold =  0.65
+        threshold = 0.65
         text_prompt = request.data.get('text_prompt')
-        
+
         if not image:
             return Response({'error': 'No image file provided'}, status=400)
         
         if not allowed_file(image.name):
             return Response({'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'}, status=400)
-        
+
         try:
             # Save and process the image
             image_bytes = image.read()
             image_path = save_uploaded_image(image_bytes, image.name)
             
             # Verify uniform
-            # result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold,text_prompt)
-            result, confidence, note, missing = verify_uniform(image_path, threshold,text_prompt)
+            result, confidence, note, missing = verify_uniform(image_path, threshold, text_prompt)
 
-            
+            # Save the image to model-compatible File object
+            django_file = ContentFile(image_bytes, name=image.name)
+
+            # Save result in database
+            uniform_instance = uniformChecker.objects.create(
+                image=django_file,
+                result=result,
+                confidence=confidence,
+                note=note
+            )
+
             return Response({
+                'id': str(uniform_instance.id),
                 'result': result,
                 'confidence_percentage': confidence,
                 'note': note,
-                # 'required_elements': required,
-                # 'optional_elements': optional,
-                # 'missing_elements': missing
             }, status=200)
-            
+
         except Exception as e:
             return Response({'error': f'Image processing error: {str(e)}'}, status=500)
+
     
     @action(
         detail=False, 
         methods=['POST'],
-        url_path='verify-url', 
+        url_path='verify-uniform-with-url', 
         serializer_class=uniformVerifyImageUrlSerializer
     )
     def verify_uniform_url(self, request):
@@ -74,41 +86,52 @@ class CompareImagesViewSet(viewsets.GenericViewSet):
         threshold = 0.65
         text_prompt = request.data.get('text_prompt')
 
-        
         if not image_url:
             return Response({'error': 'No image URL provided'}, status=400)
-        
-        try:
 
+        try:
             response = requests.get(image_url, timeout=10)
             if response.status_code != 200:
                 return Response({'error': 'Failed to download image from URL'}, status=400)
-            
-            # Extract filename from URL
-            url_path = image_url.split('?')[0]  
+
+            # Extract filename
+            url_path = image_url.split('?')[0]
             filename = url_path.split('/')[-1]
             if not allowed_file(filename):
-                filename = "downloaded_image.jpg" 
-            
-            # Save and process the image
-            image_path = save_uploaded_image(response.content, filename)
-            
-            # Verify uniform
-            # result, confidence, note, required, optional, missing = verify_uniform(image_path, threshold,text_prompt)
-            result, confidence, note,  missing = verify_uniform(image_path, threshold,text_prompt)
+                filename = "downloaded_image.jpg"
 
-            
+            image_bytes = response.content
+            image_path = save_uploaded_image(image_bytes, filename)
+
+            # Verify uniform
+            result, confidence, note, missing = verify_uniform(image_path, threshold, text_prompt)
+
+            # Save to model
+            django_file = ContentFile(image_bytes, name=filename)
+
+            uniform_instance = uniformChecker.objects.create(
+                image=django_file,
+                result=result,
+                confidence=confidence,
+                note=note
+            )
+
             return Response({
+                'id': str(uniform_instance.id),
                 'result': result,
                 'confidence_percentage': confidence,
                 'note': note,
-                # 'required_elements': required,
-                # 'optional_elements': optional,
-                # 'missing_elements': missing
             }, status=200)
-            
+
         except Exception as e:
             return Response({'error': f'Image processing error: {str(e)}'}, status=500)
+
+        
+
+class CompareImagesViewSet(viewsets.GenericViewSet):
+    serializer_class = ImageSerializer
+    parser_classes = (MultiPartParser, FormParser)
+
     
     @action(
         detail=False, 

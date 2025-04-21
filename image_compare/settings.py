@@ -12,6 +12,21 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 import os
 from pathlib import Path
+import environ
+# Initialise environment variables
+
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+env = environ.Env()
+
+# Ensure the path is correct and read the specified .env file
+env_file = BASE_DIR / '.env'
+env.read_env(env_file)
+
+
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -83,10 +98,27 @@ WSGI_APPLICATION = 'image_compare.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+
+        'default': {
+        'ENGINE': env('POSTGRES_DB_ENGINE'),
+        'NAME': env('POSTGRES_DB_NAME'),
+        'USER': env('POSTGRES_USER'),
+        'PASSWORD': env('POSTGRES_PASSWORD'),
+        'HOST': env('POSTGRES_HOST'),
+        'PORT': env('POSTGRES_PORT'),
+        
+    },
+
+
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': 'image.compare',
+    #     'USER':'postgres',
+    #     'PASSWORD': 'NgTVaWi2wZ4jMUneUTGQ',
+    #     'HOST': '34.105.252.203',
+    #     'PORT': '5432',
+        
+    # }
 }
 
 
@@ -142,3 +174,34 @@ SWAGGER_SETTINGS = {
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# AWS Settings
+
+AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = "webtech.dev-documents"
+AWS_DEFAULT_REGION = "eu-west-2"
+AWS_S3_REGION_NAME = "eu-west-2"
+
+AWS_S3_CUSTOM_DOMAIN = '%s.s3.%s.amazonaws.com' % (AWS_STORAGE_BUCKET_NAME, AWS_DEFAULT_REGION)
+AWS_S3_ADDRESSING_STYLE = None
+AWS_DEFAULT_ACL = 'private'
+AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+AWS_S3_SIGNATURE_VERSION = "s3v4"
+AWS_LOCATION = 'static'
+S3_URL = "https://%s" % AWS_S3_CUSTOM_DOMAIN
+# public media settings
+DEFAULT_FILE_STORAGE = 'project.storage_backends.MediaStorage'
+MEDIA_DIRECTORY = "/public/"
+MEDIA_URL = S3_URL + MEDIA_DIRECTORY
+# private media settings
+PRIVATE_MEDIA_LOCATION = '/private/'
+PRIVATE_MEDIA_URL = 'https://%s/%s/' % (AWS_S3_CUSTOM_DOMAIN, PRIVATE_MEDIA_LOCATION)
+
+# Link expiration time in seconds
+AWS_QUERYSTRING_EXPIRE = "36000"
+
+
+# STATIC_URL = 'https://%s/%s/' % (AWS_S3_CUSTOM_DOMAIN, AWS_LOCATION)
+STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
