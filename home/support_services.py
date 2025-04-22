@@ -104,8 +104,8 @@ def compare_faces(image1_path, image2_path):
     try:
         for model_name in models:
             try:
-                # result = DeepFace.verify(img1_path=image1_path, img2_path=image2_path, model_name=model_name, detector_backend="ssd")
-                result = DeepFace.verify(img1_path=image1_path, img2_path=image2_path, model_name=model_name, detector_backend="retinaface")
+                # result = DeepFace.verify(img1_path=image1_path, img2_path=image2_path, model_name=model_name, detector_backend="retinaface")
+                result = DeepFace.verify(img1_path=image1_path, img2_path=image2_path, model_name=model_name, detector_backend="mtcnn")
 
                 verified = result.get('verified', False)
                 distance = result.get('distance', None)
