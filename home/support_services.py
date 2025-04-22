@@ -97,15 +97,16 @@ def preprocess_and_save_image(image_bytes, filename):
         return None
 
 def compare_faces(image1_path, image2_path):
-    models = ["VGG-Face", "Facenet", "Facenet512", "DeepFace", "OpenFace", "ArcFace"]
-    # models = ["Facenet512", "ArcFace"]
+    # models = ["VGG-Face", "Facenet", "Facenet512", "DeepFace", "OpenFace", "ArcFace"]
+    models = ["Facenet512", "ArcFace"]
     results = []
 
     try:
         for model_name in models:
             try:
-                result = DeepFace.verify(img1_path=image1_path, img2_path=image2_path, model_name=model_name, detector_backend="ssd")
-                # result = DeepFace.verify(img1_path=image1_path, img2_path=image2_path, model_name=model_name, detector_backend="retinaface")
+                # result = DeepFace.verify(img1_path=image1_path, img2_path=image2_path, model_name=model_name, detector_backend="ssd")
+                result = DeepFace.verify(img1_path=image1_path, img2_path=image2_path, model_name=model_name, detector_backend="retinaface")
+
                 verified = result.get('verified', False)
                 distance = result.get('distance', None)
                 results.append((model_name, verified, distance))
