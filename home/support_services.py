@@ -97,7 +97,8 @@ def preprocess_and_save_image(image_bytes, filename):
         return None
 
 def compare_faces(image1_path, image2_path):
-    models = ["Facenet512", "OpenFace", "ArcFace"]
+    # models = ["VGG-Face", "Facenet", "Facenet512", "DeepFace", "OpenFace", "ArcFace"]
+    models = ["Facenet512", "ArcFace"]
     results = []
 
     try:
