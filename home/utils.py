@@ -51,6 +51,10 @@ def get_uniform_checker_image(instance, filename):
     filepath = f'uniform_checker_images/{filename}'
     return filepath
 
+@append_datetime_to_filepath
+def get_clip_data_set(instance, filename):
+    filepath = f'uniform_checker_images/data_set{filename}'
+    return filepath
 
 class DefaultPagination(PageNumberPagination):
     ordering = 'id'

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import models
 
-from home.models import uniformChecker
+from home.models import DataSet, uniformChecker
 
 
 
@@ -31,3 +31,22 @@ class uniformCheckerSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
         
+class CustomUniformVerifyImageSerializer(serializers.Serializer):
+    image = serializers.ImageField(required=True)
+    threshold = serializers.FloatField(required=False)
+    prompt = serializers.CharField(required=False)
+
+
+
+class DataSettSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DataSet
+        fields = '__all__'
+
+
+class GenrateDataSetSerializer(serializers.Serializer):
+    image = serializers.ImageField(required=True)
+    prompt = serializers.CharField(required=False)
+
+    def create(self, validated_data):
+        return DataSet.objects.create(**validated_data)
