@@ -8,6 +8,7 @@ __pycache__/
 env/
 .env
 venv/
+model_checkpoints
 # Distribution / packaging
 .Python
 build/

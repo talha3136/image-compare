@@ -37,6 +37,11 @@ class CustomUniformVerifyImageSerializer(serializers.Serializer):
     prompt = serializers.CharField(required=False)
 
 
+class CustomUniformVerifyImageUrlSerializer(serializers.Serializer):
+    imageURL = serializers.URLField(required=True)
+    threshold = serializers.FloatField(required=False)
+    prompt = serializers.CharField(required=False)
+
 
 class DataSettSerializer(serializers.ModelSerializer):
     class Meta:
@@ -50,3 +55,7 @@ class GenrateDataSetSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return DataSet.objects.create(**validated_data)
+    
+class GenrateDataSetFromUrlSerializer(serializers.Serializer):
+    imageURL = serializers.URLField(required=True)
+    prompt = serializers.CharField(required=False)

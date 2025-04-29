@@ -1,45 +1,40 @@
-
 from datetime import datetime, timezone
 import os
 from venv import logger
 import torch
 from home.dataSet_service import ClipDataset
 from .models import DataSet, TrainingState, uniformChecker
-from .serializers import CustomUniformVerifyImageSerializer, DataSettSerializer, GenrateDataSetSerializer, ImageSerializer, ImageUrlSerializer, uniformCheckerSerializer, uniformVerifyImageSerializer, uniformVerifyImageUrlSerializer
-from rest_framework import viewsets,mixins,status
+from .serializers import CustomUniformVerifyImageSerializer, CustomUniformVerifyImageUrlSerializer, DataSettSerializer, GenrateDataSetFromUrlSerializer, GenrateDataSetSerializer, ImageSerializer, ImageUrlSerializer, uniformCheckerSerializer, uniformVerifyImageSerializer, uniformVerifyImageUrlSerializer
+from rest_framework import viewsets, mixins, status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .services import FileRelatedService
 import requests
-from .support_services import allowed_file, compare_faces, preprocess_and_save_image,verify_uniform,save_uploaded_image,ALLOWED_EXTENSIONS
+from .support_services import allowed_file, compare_faces, preprocess_and_save_image, verify_uniform, save_uploaded_image, ALLOWED_EXTENSIONS
 from .utils import DefaultPagination
 from django.core.files.base import ContentFile
 import open_clip
 from PIL import Image
+import io
 from torch.utils.data import Dataset, DataLoader
-
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 MODEL_NAME = "ViT-B-32"
 PRETRAINED_SOURCE = "openai"
-MODEL_CHECKPOINT = "/home/talha/Desktop/image_compare/model_checkpoints/clip_uniform.pt"
-BATCH_SIZE = 16  # Increased for scalability
+MODEL_CHECKPOINT = "model_checkpoints/clip_uniform.pt"
+BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
 EPOCHS = 3
 
-
+# Initialize model and tokenizer (loaded once at startup)
 model, _, preprocess = open_clip.create_model_and_transforms(MODEL_NAME, pretrained=PRETRAINED_SOURCE)
-
 tokenizer = open_clip.get_tokenizer(MODEL_NAME)
+
+# Load checkpoint if it exists
 if os.path.exists(MODEL_CHECKPOINT):
     model.load_state_dict(torch.load(MODEL_CHECKPOINT, map_location=DEVICE))
 model.to(DEVICE).eval()
-trained_model = model
-
-
-
-
 
 class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
     parser_classes = (MultiPartParser, FormParser)
@@ -57,6 +52,15 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
 
         if not file:
             return Response({'error': 'No image uploaded'}, status=400)
+
+        # Reload model state from checkpoint to ensure latest version
+        if os.path.exists(MODEL_CHECKPOINT):
+            try:
+                model.load_state_dict(torch.load(MODEL_CHECKPOINT, map_location=DEVICE))
+                model.to(DEVICE).eval()
+            except Exception as e:
+                logger.error(f"Error loading model checkpoint: {str(e)}")
+                return Response({'error': 'Failed to load model'}, status=500)
 
         image = Image.open(file).convert('RGB')
         image_tensor = preprocess(image).unsqueeze(0).to(DEVICE)
@@ -88,6 +92,56 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         })
     
     @action(
+        detail=False,
+        methods=['POST'],
+        url_path='verify-uniform-with-image-url-v2',
+        serializer_class=CustomUniformVerifyImageUrlSerializer
+    )
+    def verify_uniform_image_url_v2(self, request):
+        serializer = CustomUniformVerifyImageUrlSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        image_url = serializer.validated_data['imageURL']
+        threshold = serializer.validated_data.get('threshold', 0.65)
+        user_prompt = serializer.validated_data.get('prompt', '')
+
+        # Download and load image
+        try:
+            image_data = requests.get(image_url, timeout=10).content
+            image = Image.open(io.BytesIO(image_data)).convert('RGB')
+        except:
+            return Response({'error': 'Invalid or inaccessible image URL'}, status=400)
+
+        # Reload model from checkpoint
+        try:
+            model.load_state_dict(torch.load(MODEL_CHECKPOINT, map_location=DEVICE))
+            model.to(DEVICE).eval()
+        except:
+            return Response({'error': 'Failed to load model'}, status=500)
+
+        image_tensor = preprocess(image).unsqueeze(0).to(DEVICE)
+
+        prompt = user_prompt or "a UK security officer wearing a crisp white dress shirt, black tie, hi-vis"
+        negative_prompt = "a person in casual clothes without white shirt and black tie"
+
+        text_inputs = tokenizer([prompt, negative_prompt]).to(DEVICE)
+
+        with torch.no_grad():
+            image_features = model.encode_image(image_tensor)
+            text_features = model.encode_text(text_inputs)
+            probs = (image_features @ text_features.T).softmax(dim=-1).cpu().numpy()[0]
+
+        confidence = probs[0]
+        result = confidence >= threshold
+
+        return Response({
+            "result": result,
+            "confidence_pct": f"{confidence * 100:.2f}",
+            "summary": "✅ Uniform detected." if result else "❌ Uniform not detected."
+        })
+
+    
+    @action(
         detail=False, 
         methods=['post'],
         url_path='genrate-dataset',
@@ -99,10 +153,46 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
             serializer.save()
             return Response({'message': 'dataset saved'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(
+        detail=False, 
+        methods=['POST'],
+        url_path='generate-dataset-from-url',
+        serializer_class=GenrateDataSetFromUrlSerializer
+    )
+    def generate_dataset_from_url(self, request):
+        """Generate dataset entry from image URL"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        image_url = serializer.validated_data['imageURL']
+        prompt = serializer.validated_data.get('prompt', '')
+
+        try:
+            response = requests.get(image_url, timeout=10)
+            response.raise_for_status()
+
+            if not response.headers.get('content-type', '').startswith('image/'):
+                return Response({'error': 'URL does not point to an image'}, status=400)
+
+            image_bytes = response.content
+            Image.open(io.BytesIO(image_bytes)).verify()  # Validate image
+        except Exception:
+            return Response({'error': 'Invalid or inaccessible image URL'}, status=400)
+
+        filename = os.path.basename(image_url.split('?')[0]) or f"dataset_{timezone.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+
+        try:
+            django_file = ContentFile(image_bytes, name=filename)
+            dataset_entry = DataSet.objects.create(image=django_file, prompt=prompt)
+            return Response({'message': 'Dataset entry created', 'id': dataset_entry.id}, status=201)
+        except Exception as e:
+            return Response({'error': f'Failed to save dataset: {str(e)}'}, status=500)
+
     @action(
         detail=False,
         methods=['get'],
-        url_path= 'get-dataset',
+        url_path='get-dataset',
         serializer_class=DataSettSerializer
     )
     def get_dataset(self, request):
@@ -117,11 +207,11 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
     )
     def train_model(self, request):
         try:
-            # Initialize fresh model
-            model, _, preprocess = open_clip.create_model_and_transforms(MODEL_NAME, pretrained=PRETRAINED_SOURCE)
-            tokenizer = open_clip.get_tokenizer(MODEL_NAME)
-            model = model.to(DEVICE)
-            model.train()
+            # Initialize fresh model for training
+            train_model, _, train_preprocess = open_clip.create_model_and_transforms(MODEL_NAME, pretrained=PRETRAINED_SOURCE)
+            train_tokenizer = open_clip.get_tokenizer(MODEL_NAME)
+            train_model = train_model.to(DEVICE)
+            train_model.train()
 
             # Get new data
             state, _ = TrainingState.objects.get_or_create(id=1)
@@ -144,7 +234,7 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
                     return Response({'message': f'Image not accessible: {item.image.name}'}, status=400)
 
             # Create dataset and DataLoader
-            dataset = ClipDataset(new_data, preprocess, tokenizer)
+            dataset = ClipDataset(new_data, train_preprocess, train_tokenizer)
             dataloader = DataLoader(
                 dataset,
                 batch_size=BATCH_SIZE,
@@ -154,7 +244,7 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
             )
 
             # Train model
-            optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+            optimizer = torch.optim.AdamW(train_model.parameters(), lr=LEARNING_RATE)
             loss_fn = torch.nn.CrossEntropyLoss()
 
             for epoch in range(EPOCHS):
@@ -166,8 +256,8 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
                         if text_tokens.dim() == 1:  # Handle edge case of single sequence
                             text_tokens = text_tokens.unsqueeze(0)
 
-                    image_features = model.encode_image(images)
-                    text_features = model.encode_text(text_tokens)
+                    image_features = train_model.encode_image(images)
+                    text_features = train_model.encode_text(text_tokens)
                     logits = image_features @ text_features.T
                     labels = torch.arange(len(images), device=DEVICE)
                     loss = loss_fn(logits, labels)
@@ -176,20 +266,17 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
                     loss.backward()
                     optimizer.step()
 
-            # Save model
+            # Save model checkpoint
             os.makedirs(os.path.dirname(MODEL_CHECKPOINT), exist_ok=True)
-            torch.save(model.state_dict(), MODEL_CHECKPOINT)
+            torch.save(train_model.state_dict(), MODEL_CHECKPOINT)
 
-            # Reload model
-            model, _, _ = open_clip.create_model_and_transforms(MODEL_NAME, pretrained=PRETRAINED_SOURCE)
+            # Update global model with new state
             model.load_state_dict(torch.load(MODEL_CHECKPOINT, map_location=DEVICE))
             model.to(DEVICE).eval()
-            global trained_model
-            trained_model = model
 
             # Update training state
             state.last_trained_id = new_data.last()
-            state.last_trained_time = datetime.now()
+            state.last_trained_time = datetime.now(timezone.utc)
             state.save()
 
             return Response({
@@ -200,7 +287,6 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         except Exception as e:
             logger.error(f"Training error: {str(e)}")
             return Response({'message': f'Error training model: {str(e)}'}, status=500)
-
 
 class uniformCheckerViewset(viewsets.GenericViewSet,mixins.ListModelMixin,mixins.DestroyModelMixin):
     queryset = uniformChecker.objects.all()
