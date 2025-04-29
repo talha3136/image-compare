@@ -272,9 +272,9 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
             model.to(DEVICE).eval()
 
             # ✅ Update training stats
-            state.last_trained_id = new_data.last()
-            state.last_trained_time = datetime.now(timezone.utc)
-            state.save()
+            # state.last_trained_id = new_data.last()
+            # state.last_trained_time = datetime.now(timezone.utc)
+            # state.save()
 
             return Response({
                 'message': f'Trained on {new_data.count()} new samples.',
