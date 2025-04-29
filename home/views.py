@@ -207,13 +207,21 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
     )
     def train_model(self, request):
         try:
-            # Initialize fresh model for training
             train_model, _, train_preprocess = open_clip.create_model_and_transforms(MODEL_NAME, pretrained=PRETRAINED_SOURCE)
             train_tokenizer = open_clip.get_tokenizer(MODEL_NAME)
             train_model = train_model.to(DEVICE)
             train_model.train()
 
-            # Get new data
+            # ✅ Try to load existing pretrained checkpoint
+            if os.path.exists(MODEL_CHECKPOINT):
+                try:
+                    train_model.load_state_dict(torch.load(MODEL_CHECKPOINT, map_location=DEVICE))
+                    logger.info("Loaded existing pretrained model checkpoint.")
+                except Exception as e:
+                    logger.error(f"Failed to load checkpoint: {str(e)}")
+                    return Response({'message': f'Error loading checkpoint: {str(e)}'}, status=500)
+
+            # ✅ Get only new data since last training
             state, _ = TrainingState.objects.get_or_create(id=1)
             new_data = (
                 DataSet.objects.filter(id__gt=state.last_trained_id.id).order_by('id')
@@ -224,36 +232,24 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
             if not new_data.exists():
                 return Response({'message': 'No new data to train on.'}, status=200)
 
-            # Validate image accessibility
-            for item in new_data:
-                try:
-                    with item.image.open('rb') as f:
-                        pass  # Check if file can be opened
-                except Exception as e:
-                    logger.error(f"Image not accessible for item {item.id}: {str(e)}")
-                    return Response({'message': f'Image not accessible: {item.image.name}'}, status=400)
-
-            # Create dataset and DataLoader
             dataset = ClipDataset(new_data, train_preprocess, train_tokenizer)
             dataloader = DataLoader(
                 dataset,
                 batch_size=BATCH_SIZE,
                 shuffle=True,
                 num_workers=4,
-                pin_memory=True if DEVICE == "cuda" else False
+                pin_memory=(DEVICE == "cuda")
             )
 
-            # Train model
             optimizer = torch.optim.AdamW(train_model.parameters(), lr=LEARNING_RATE)
             loss_fn = torch.nn.CrossEntropyLoss()
 
             for epoch in range(EPOCHS):
                 for images, text_tokens in dataloader:
                     images, text_tokens = images.to(DEVICE), text_tokens.to(DEVICE)
-                    # Ensure text_tokens is 2D (batch_size, sequence_length)
                     if text_tokens.dim() > 2:
-                        text_tokens = text_tokens.squeeze()  # Remove extra dimensions if any
-                        if text_tokens.dim() == 1:  # Handle edge case of single sequence
+                        text_tokens = text_tokens.squeeze()
+                        if text_tokens.dim() == 1:
                             text_tokens = text_tokens.unsqueeze(0)
 
                     image_features = train_model.encode_image(images)
@@ -266,15 +262,16 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
                     loss.backward()
                     optimizer.step()
 
-            # Save model checkpoint
+            # ✅ Save updated model
             os.makedirs(os.path.dirname(MODEL_CHECKPOINT), exist_ok=True)
             torch.save(train_model.state_dict(), MODEL_CHECKPOINT)
+            logger.info("Saved updated model checkpoint.")
 
-            # Update global model with new state
+            # ✅ Update in-memory global model
             model.load_state_dict(torch.load(MODEL_CHECKPOINT, map_location=DEVICE))
             model.to(DEVICE).eval()
 
-            # Update training state
+            # ✅ Update training stats
             state.last_trained_id = new_data.last()
             state.last_trained_time = datetime.now(timezone.utc)
             state.save()
@@ -287,6 +284,95 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         except Exception as e:
             logger.error(f"Training error: {str(e)}")
             return Response({'message': f'Error training model: {str(e)}'}, status=500)
+
+    
+    # @action(
+    #     detail=False, 
+    #     methods=['post'],
+    #     url_path='train-model',
+    # )
+    # def train_model(self, request):
+    #     try:
+    #         # Initialize fresh model for training
+    #         train_model, _, train_preprocess = open_clip.create_model_and_transforms(MODEL_NAME, pretrained=PRETRAINED_SOURCE)
+    #         train_tokenizer = open_clip.get_tokenizer(MODEL_NAME)
+    #         train_model = train_model.to(DEVICE)
+    #         train_model.train()
+
+    #         # Get new data
+    #         state, _ = TrainingState.objects.get_or_create(id=1)
+    #         new_data = (
+    #             DataSet.objects.filter(id__gt=state.last_trained_id.id).order_by('id')
+    #             if state.last_trained_id
+    #             else DataSet.objects.all().order_by('id')
+    #         )
+
+    #         if not new_data.exists():
+    #             return Response({'message': 'No new data to train on.'}, status=200)
+
+    #         # Validate image accessibility
+    #         for item in new_data:
+    #             try:
+    #                 with item.image.open('rb') as f:
+    #                     pass  # Check if file can be opened
+    #             except Exception as e:
+    #                 logger.error(f"Image not accessible for item {item.id}: {str(e)}")
+    #                 return Response({'message': f'Image not accessible: {item.image.name}'}, status=400)
+
+    #         # Create dataset and DataLoader
+    #         dataset = ClipDataset(new_data, train_preprocess, train_tokenizer)
+    #         dataloader = DataLoader(
+    #             dataset,
+    #             batch_size=BATCH_SIZE,
+    #             shuffle=True,
+    #             num_workers=4,
+    #             pin_memory=True if DEVICE == "cuda" else False
+    #         )
+
+    #         # Train model
+    #         optimizer = torch.optim.AdamW(train_model.parameters(), lr=LEARNING_RATE)
+    #         loss_fn = torch.nn.CrossEntropyLoss()
+
+    #         for epoch in range(EPOCHS):
+    #             for images, text_tokens in dataloader:
+    #                 images, text_tokens = images.to(DEVICE), text_tokens.to(DEVICE)
+    #                 # Ensure text_tokens is 2D (batch_size, sequence_length)
+    #                 if text_tokens.dim() > 2:
+    #                     text_tokens = text_tokens.squeeze()  # Remove extra dimensions if any
+    #                     if text_tokens.dim() == 1:  # Handle edge case of single sequence
+    #                         text_tokens = text_tokens.unsqueeze(0)
+
+    #                 image_features = train_model.encode_image(images)
+    #                 text_features = train_model.encode_text(text_tokens)
+    #                 logits = image_features @ text_features.T
+    #                 labels = torch.arange(len(images), device=DEVICE)
+    #                 loss = loss_fn(logits, labels)
+
+    #                 optimizer.zero_grad()
+    #                 loss.backward()
+    #                 optimizer.step()
+
+    #         # Save model checkpoint
+    #         os.makedirs(os.path.dirname(MODEL_CHECKPOINT), exist_ok=True)
+    #         torch.save(train_model.state_dict(), MODEL_CHECKPOINT)
+
+    #         # Update global model with new state
+    #         model.load_state_dict(torch.load(MODEL_CHECKPOINT, map_location=DEVICE))
+    #         model.to(DEVICE).eval()
+
+    #         # Update training state
+    #         state.last_trained_id = new_data.last()
+    #         state.last_trained_time = datetime.now(timezone.utc)
+    #         state.save()
+
+    #         return Response({
+    #             'message': f'Trained on {new_data.count()} new samples.',
+    #             'last_trained_time': state.last_trained_time
+    #         }, status=200)
+
+    #     except Exception as e:
+    #         logger.error(f"Training error: {str(e)}")
+    #         return Response({'message': f'Error training model: {str(e)}'}, status=500)
 
 class uniformCheckerViewset(viewsets.GenericViewSet,mixins.ListModelMixin,mixins.DestroyModelMixin):
     queryset = uniformChecker.objects.all()
