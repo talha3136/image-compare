@@ -13,7 +13,8 @@ from django.utils import timezone
 from urllib.request import urlopen
 
 import multiprocessing
-num_workers = min(4, multiprocessing.cpu_count())
+num_workers = min(4,multiprocessing.cpu_count())
+
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -92,7 +93,7 @@ class UniformVerificationService:
                 dataset,
                 batch_size=BATCH_SIZE,
                 shuffle=True,
-                num_workers=4,
+                num_workers=num_workers,
                 pin_memory=(DEVICE == "cuda")
             )
 
