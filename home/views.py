@@ -1,6 +1,6 @@
 import os
 from home.services.uniform_verification_service import UniformVerificationService
-from .models import DataSet, uniformChecker
+from .models import DataSet, TrainingState, uniformChecker
 from .serializers import CustomUniformVerifyImageSerializer, CustomUniformVerifyImageUrlSerializer, DataSettSerializer, EmptySerializer, GenrateDataSetFromUrlSerializer, GenrateDataSetSerializer, ImageSerializer, ImageUrlSerializer, uniformCheckerSerializer, uniformVerifyImageSerializer, uniformVerifyImageUrlSerializer
 from rest_framework import viewsets, mixins, status
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -129,6 +129,37 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         serializer = DataSettSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='get-previous-dataset',
+        serializer_class=DataSettSerializer
+    )
+    def get_previous_dataset(self, request):
+        training_query = TrainingState.objects.filter().last()
+        print('query', training_query)
+        if not training_query:
+            return Response({'message': 'No training data available'}, status=status.HTTP_404_NOT_FOUND)
+        queryset = DataSet.objects.filter(id__lte=training_query.last_trained_id.id)
+        serializer = DataSettSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='get-new-dataset',
+        serializer_class=DataSettSerializer
+    )
+    def get_new_dataset(self, request):
+        training_query = TrainingState.objects.filter().last()
+        if not training_query:
+            return Response({'message': 'No training data available'}, status=status.HTTP_404_NOT_FOUND)
+        print('query', training_query)
+        queryset = DataSet.objects.filter(id__gt=training_query.last_trained_id.id)
+        serializer = DataSettSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
     @action(
         detail=False, 
         methods=['post'],
