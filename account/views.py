@@ -142,7 +142,7 @@ class UserTokenViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         return queryset
 
 
-class UserViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin,mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
@@ -158,6 +158,18 @@ class UserViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.Upd
         user_serializer = self.get_serializer(user)
         serialized_user = user_serializer.data
         return Response(serialized_user, status=status.HTTP_201_CREATED)
+    
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='get-active-users',
+        permission_classes=[IsAuthenticated],
+        serializer_class=UserSerializer,
+    )
+    def get_active_users(self, request):
+        active_users = User.objects.filter(is_active=True)
+        serializer = UserSerializer(active_users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(
         detail=False, 
