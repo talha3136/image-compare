@@ -12,6 +12,7 @@ from .services.support_services import allowed_file, compare_faces, preprocess_a
 from .utils import DefaultPagination
 from django.core.files.base import ContentFile
 from PIL import Image
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 
 
 
@@ -132,6 +133,7 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         detail=False, 
         methods=['post'],
         url_path='train-model',
+        permission_classes = [IsAuthenticated]
     )
     def train_model(self, request):
         success, result = UniformVerificationService.train_clip_model()

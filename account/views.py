@@ -147,6 +147,7 @@ class UserViewSet(viewsets.GenericViewSet, mixins.ListModelMixin,mixins.Retrieve
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ['get','post','put', 'delete','patch']
+    parser_classes = (MultiPartParser, FormParser)
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
