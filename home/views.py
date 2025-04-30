@@ -1,7 +1,7 @@
 import os
 from home.services.uniform_verification_service import UniformVerificationService
 from .models import DataSet, uniformChecker
-from .serializers import CustomUniformVerifyImageSerializer, CustomUniformVerifyImageUrlSerializer, DataSettSerializer, GenrateDataSetFromUrlSerializer, GenrateDataSetSerializer, ImageSerializer, ImageUrlSerializer, uniformCheckerSerializer, uniformVerifyImageSerializer, uniformVerifyImageUrlSerializer
+from .serializers import CustomUniformVerifyImageSerializer, CustomUniformVerifyImageUrlSerializer, DataSettSerializer, EmptySerializer, GenrateDataSetFromUrlSerializer, GenrateDataSetSerializer, ImageSerializer, ImageUrlSerializer, uniformCheckerSerializer, uniformVerifyImageSerializer, uniformVerifyImageUrlSerializer
 from rest_framework import viewsets, mixins, status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
@@ -16,6 +16,7 @@ from PIL import Image
 
 
 class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
+    serializer_class = EmptySerializer
     parser_classes = (MultiPartParser, FormParser)
 
     @action(

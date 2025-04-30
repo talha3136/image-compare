@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404
 class AuthViewSet(viewsets.GenericViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = (AllowAny)
+    permission_classes = [AllowAny]
 
     @action(
         detail=False,
@@ -83,7 +83,7 @@ class AuthViewSet(viewsets.GenericViewSet):
         methods=('POST',),
         url_path='logout',
         serializer_class=logoutSerializer,
-        permission_classes=([IsAuthenticated])
+        permission_classes=[IsAuthenticated]
 
     )
     def logout_user(self, request):
@@ -99,7 +99,7 @@ class AuthViewSet(viewsets.GenericViewSet):
         methods=('POST',), 
         url_path=r'change-team-member-password', 
         serializer_class=ChangeTeamMemberPasswordSerializer, 
-        permission_classes=([IsAuthenticated])
+        permission_classes=[IsAuthenticated]
     )
     def change_team_member_password(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -119,7 +119,7 @@ class AuthViewSet(viewsets.GenericViewSet):
         methods=('POST',), 
         url_path=r'change-self-password', 
         serializer_class=ChangeSelfPasswordSerializer, 
-        permission_classes=([IsAuthenticated])
+        permission_classes=[IsAuthenticated]
     )
     def change_self_password(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -145,7 +145,7 @@ class UserTokenViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
 class UserViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = ([IsAuthenticated ])
+    permission_classes = [IsAuthenticated]
     http_method_names = ['get','post','put', 'delete','patch']
 
     def create(self, request, *args, **kwargs):

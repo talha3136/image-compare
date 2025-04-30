@@ -1,9 +1,9 @@
 from rest_framework import serializers
-from django.db import models
-
-from home.models import DataSet, uniformChecker
+from .models import DataSet, uniformChecker
 
 
+class EmptySerializer(serializers.Serializer):
+    pass
 
 class ImageUrlSerializer(serializers.Serializer):
     profileImageURL = serializers.URLField(required=True)

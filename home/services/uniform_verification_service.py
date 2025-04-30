@@ -12,8 +12,12 @@ from django.core.files.base import ContentFile
 from django.utils import timezone
 from urllib.request import urlopen
 
+import multiprocessing
+num_workers = min(4, multiprocessing.cpu_count())
+
+
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MODEL_NAME = "ViT-B-32"
+MODEL_NAME = "ViT-B-32-quickgelu"
 PRETRAINED_SOURCE = "openai"
 MODEL_CHECKPOINT = "model_checkpoints/clip_uniform.pt"
 BATCH_SIZE = 16
