@@ -56,6 +56,14 @@ INSTALLED_APPS = [
     'rest_framework',
     'drf_yasg',
     'home',
+    'account',
+    'corsheaders',
+    'rest_framework_simplejwt.token_blacklist',
+    'rest_framework_simplejwt',
+    'storages',
+
+
+
 
 
 ]
@@ -97,6 +105,7 @@ WSGI_APPLICATION = 'image_compare.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+AUTH_USER_MODEL = 'account.User' 
 DATABASES = {
 
         'default': {
@@ -205,3 +214,4 @@ AWS_QUERYSTRING_EXPIRE = "36000"
 
 # STATIC_URL = 'https://%s/%s/' % (AWS_S3_CUSTOM_DOMAIN, AWS_LOCATION)
 STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+

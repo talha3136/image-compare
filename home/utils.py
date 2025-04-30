@@ -56,6 +56,13 @@ def get_clip_data_set(instance, filename):
     filepath = f'uniform_checker_images/data_set{filename}'
     return filepath
 
+@append_datetime_to_filepath
+def get_team_member_profile(instance, filename):
+    # filepath = f'team_members_profile_image/{instance.email}/{filename}'
+    filepath = f'uniform_checker_images/user-profile-images/{instance.email}/{filename}'
+    return filepath
+
+
 class DefaultPagination(PageNumberPagination):
     ordering = 'id'
     page_size_query_param = 'page_size'
@@ -129,10 +136,10 @@ def server_running(request):
     </head>
     <body>
     <div>
-    	<img src="https://vms.arez.io/images/logos/favicon_512x512.png">
+    	<img src="https://s3.eu-west-2.amazonaws.com/webtech.dev-documents/static_assets/image__1_-removebg-preview.png">
         </div>
-        <h1>VMS-AREZ server is online and operational.</h1> 
-        <h5 class="text-center">V 3.10</h5>
+        <h1>image verification server is online and operational.</h1> 
+        # <h5 class="text-center">V 3.10</h5>
     </body>
     </html>
 

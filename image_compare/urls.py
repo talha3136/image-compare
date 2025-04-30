@@ -21,19 +21,24 @@ from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
 from rest_framework import permissions
 
+from home.utils import server_running
+
 sw='swagger/'
 SchemaView = get_schema_view(
     openapi.Info(
-        title="AREZ API",
+        title="Image compare API",
         default_version='3.0.0',
     ),
     public=False,
-    # permission_classes=([permissions.IsAuthenticated])
+    permission_classes=([permissions.IsAuthenticated])
 )
 
 urlpatterns = [
+    path('', server_running),
     path('admin/', admin.site.urls),
     path('api/', include('home.urls')),
+    path('api/', include('account.urls')),
+
     path(sw, SchemaView.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 
 ]
