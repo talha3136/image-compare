@@ -122,10 +122,16 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         detail=False,
         methods=['get'],
         url_path='get-dataset',
-        serializer_class=DataSettSerializer
+        serializer_class=DataSettSerializer,
+        pagination_class=DefaultPagination
+
     )
     def get_dataset(self, request):
         queryset = DataSet.objects.all()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = DataSettSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = DataSettSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -133,7 +139,8 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         detail=False,
         methods=['get'],
         url_path='get-previous-dataset',
-        serializer_class=DataSettSerializer
+        serializer_class=DataSettSerializer,
+        pagination_class=DefaultPagination
     )
     def get_previous_dataset(self, request):
         training_query = TrainingState.objects.filter().last()
@@ -141,6 +148,11 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         if not training_query:
             return Response({'message': 'No training data available'}, status=status.HTTP_404_NOT_FOUND)
         queryset = DataSet.objects.filter(id__lte=training_query.last_trained_id.id)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = DataSettSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
         serializer = DataSettSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -148,7 +160,8 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         detail=False,
         methods=['get'],
         url_path='get-new-dataset',
-        serializer_class=DataSettSerializer
+        serializer_class=DataSettSerializer,
+        pagination_class=DefaultPagination
     )
     def get_new_dataset(self, request):
         training_state = TrainingState.objects.order_by('-id').first()
@@ -159,6 +172,11 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
 
         if not queryset.exists():
             return Response({'message': 'No dataset available'}, status=status.HTTP_404_NOT_FOUND)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = DataSettSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
 
         serializer = DataSettSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
