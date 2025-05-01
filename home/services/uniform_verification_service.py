@@ -81,7 +81,7 @@ class UniformVerificationService:
             state, _ = TrainingState.objects.get_or_create(id=1)
             new_data = (
                 DataSet.objects.filter(id__gt=state.last_trained_id.id).order_by('id')[:50]
-                if state.last_trained_id else DataSet.objects.all().order_by('id')
+                if state.last_trained_id else DataSet.objects.all().order_by('id')[:50]
             )
 
             if not new_data.exists():
