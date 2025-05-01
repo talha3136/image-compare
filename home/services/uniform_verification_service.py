@@ -58,7 +58,6 @@ class ClipDataset(Dataset):
             raise
 
 
-# services/training_service.py
 
 
 
