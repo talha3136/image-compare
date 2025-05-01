@@ -151,14 +151,31 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         serializer_class=DataSettSerializer
     )
     def get_new_dataset(self, request):
-        training_query = TrainingState.objects.filter().last()
-        if not training_query:
-            return Response({'message': 'No training data available'}, status=status.HTTP_404_NOT_FOUND)
-        print('query', training_query)
-        queryset = DataSet.objects.filter(id__gt=training_query.last_trained_id.id)
+        training_state = TrainingState.objects.order_by('-id').first()
+        if training_state and training_state.last_trained_id:
+            queryset = DataSet.objects.filter(id__gt=training_state.last_trained_id.id)
+        else:
+            queryset = DataSet.objects.all()
+
+        if not queryset.exists():
+            return Response({'message': 'No dataset available'}, status=status.HTTP_404_NOT_FOUND)
+
         serializer = DataSettSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+    @action(
+        detail=True,
+        methods=['delete'],
+        url_path='delete-dataset',
+        serializer_class=DataSettSerializer
+    )
+    def delete_dataset(self, request, pk=None):
+        try:
+            dataset = DataSet.objects.get(pk=pk)
+            dataset.delete()
+            return Response({'message': 'Dataset deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+        except DataSet.DoesNotExist:
+            return Response({'error': 'Dataset not found'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(
         detail=False, 
