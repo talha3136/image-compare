@@ -8,7 +8,7 @@
 echo "BUILD START"
 
 # Install CMake (required for building dlib from source)
-apt-get update && apt-get install -y cmake build-essential
+# apt-get update && apt-get install -y cmake build-essential
 
 # Install required Python packages
 pip install -r requirements.txt
