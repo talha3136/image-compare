@@ -126,8 +126,8 @@ class UniformVerificationService:
             model.load_state_dict(torch.load(MODEL_CHECKPOINT, map_location=DEVICE))
             model.to(DEVICE).eval()
 
-            # Optional: Update training state
-            state.last_trained_id = new_data_list.last()
+
+            state.last_trained_id = new_data_list[-1]
             state.last_trained_time = timezone.now()
             state.save()
 

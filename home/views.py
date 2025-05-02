@@ -156,6 +156,12 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         else:
             queryset = DataSet.objects.all()
 
+        if not queryset.exists():
+            return Response({'message': 'No dataset available'}, status=status.HTTP_404_NOT_FOUND)
+        
+        queryset = queryset.order_by('-created_at')
+        
+
         if search_query:
             queryset = queryset.filter(prompt__icontains=search_query)
 

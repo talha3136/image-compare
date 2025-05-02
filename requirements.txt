@@ -3,7 +3,7 @@ boto3==1.37.37
 click-didyoumean==0.3.1
 click-plugins==1.1.1
 click-repl==0.3.0
-clip==1.0
+git+https://github.com/openai/CLIP.git
 cron-descriptor==1.4.5
 deepface==0.0.93
 django-cors-headers==4.7.0

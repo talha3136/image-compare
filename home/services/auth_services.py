@@ -29,18 +29,20 @@ class AuthenticationService:
     
     @staticmethod
     def login(email, password, is_superuser):
-        if is_superuser:
-            user: User = User.objects.filter(email=email, is_superuser=True).first()
-        else:
-            #check not for superuser
-            user: User = User.objects.filter(email=email, is_superuser=False).first()
-            if not user:
-                raise AuthenticationFailed('Only supper users login allowed')
+        user: User = User.objects.filter(email=email).first()
 
-        #check if user not active
-        if user is None or not user.is_active:
-            raise AuthenticationFailed('User not active ')
-        if user is None or not user.check_password(password):
+        if not user:
+            raise AuthenticationFailed('User not found')
+
+        if is_superuser and not user.is_superuser:
+            raise AuthenticationFailed('Only superusers can login')
+        if not is_superuser and user.is_superuser:
+            raise AuthenticationFailed('Superusers cannot login from this portal')
+
+        if not user.is_active:
+            raise AuthenticationFailed('User not active')
+
+        if not user.check_password(password):
             raise AuthenticationFailed('Invalid email or password')
 
         access_token = str(AccessToken.for_user(user))
