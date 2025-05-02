@@ -80,14 +80,15 @@ class UniformVerificationService:
 
             state, _ = TrainingState.objects.get_or_create(id=1)
             new_data = (
-                DataSet.objects.filter(id__gt=state.last_trained_id.id).order_by('id')[:50]
-                if state.last_trained_id else DataSet.objects.all().order_by('id')[:50]
+                DataSet.objects.filter(id__gt=state.last_trained_id.id).order_by('id')[:30]
+                if state.last_trained_id else DataSet.objects.all().order_by('id')[:30]
             )
+            new_data_list = list(new_data)
 
-            if not new_data.exists():
+            if not new_data_list.exists():
                 return True, {'message': 'No new data to train on.', 'last_trained_time': state.last_trained_time}
 
-            dataset = ClipDataset(new_data, train_preprocess, train_tokenizer)
+            dataset = ClipDataset(new_data_list, train_preprocess, train_tokenizer)
             dataloader = DataLoader(
                 dataset,
                 batch_size=BATCH_SIZE,
@@ -126,7 +127,7 @@ class UniformVerificationService:
             model.to(DEVICE).eval()
 
             # Optional: Update training state
-            state.last_trained_id = new_data.last()
+            state.last_trained_id = new_data_list.last()
             state.last_trained_time = timezone.now()
             state.save()
 

@@ -123,14 +123,8 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
    
     @swagger_auto_schema(
     manual_parameters=[
-        openapi.Parameter(
-            'filter',
-            openapi.IN_QUERY,
-            description='Dataset filter: "previous", "new", or leave empty for all data',
-            type=openapi.TYPE_STRING,
-            enum=['previous', 'new'],
-            required=False
-            )
+        openapi.Parameter('filter',openapi.IN_QUERY,description='Dataset filter: "previous", "new", or leave empty for all data',type=openapi.TYPE_STRING,enum=['previous', 'new'],required=False),
+        openapi.Parameter('query', openapi.IN_QUERY, description='Search query', type=openapi.TYPE_STRING, required=False)
         ]
     )
     
@@ -143,6 +137,7 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
     )
     def dataset(self, request):
         filter_type = request.query_params.get('filter') 
+        search_query = request.query_params.get('query', '')
         training_state = TrainingState.objects.order_by('-id').first()
 
         if filter_type == 'previous':
@@ -161,7 +156,9 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
         else:
             queryset = DataSet.objects.all()
 
-        # Apply pagination
+        if search_query:
+            queryset = queryset.filter(prompt__icontains=search_query)
+
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = DataSettSerializer(page, many=True)
