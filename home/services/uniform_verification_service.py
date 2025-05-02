@@ -85,7 +85,7 @@ class UniformVerificationService:
             )
             new_data_list = list(new_data)
 
-            if not new_data_list.exists():
+            if not new_data_list:
                 return True, {'message': 'No new data to train on.', 'last_trained_time': state.last_trained_time}
 
             dataset = ClipDataset(new_data_list, train_preprocess, train_tokenizer)
