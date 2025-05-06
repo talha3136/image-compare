@@ -34,10 +34,10 @@ class AuthenticationService:
         if not user:
             raise AuthenticationFailed('User not found')
 
-        if is_superuser and not user.is_superuser:
-            raise AuthenticationFailed('Only superusers can login')
-        if not is_superuser and user.is_superuser:
-            raise AuthenticationFailed('Superusers cannot login from this portal')
+        # if is_superuser and not user.is_superuser:
+        #     raise AuthenticationFailed('Only superusers can login')
+        # if not is_superuser and user.is_superuser:
+        #     raise AuthenticationFailed('Superusers cannot login from this portal')
 
         if not user.is_active:
             raise AuthenticationFailed('User not active')

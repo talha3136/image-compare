@@ -181,8 +181,9 @@ class UniformVerificationService:
         try:
             image_tensor = preprocess(image).unsqueeze(0).to(DEVICE)
 
-            default_prompt = "a UK security officer wearing a crisp white dress shirt, black tie, hi-vis"
-            negative_prompt = "a person in casual clothes without white shirt and black tie"
+            default_prompt = "a UK security officer wearing a crisp white dress shirt and black tie, with or without jacket, may have security badges and hi-vis"
+            negative_prompt = "a person in casual clothes without white shirt and black tie: t-shirts, sweaters, jeans, hoodies, or informal attire"
+        
             prompt = prompt or default_prompt
 
             text_inputs = tokenizer([prompt, negative_prompt]).to(DEVICE)

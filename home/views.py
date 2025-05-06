@@ -142,7 +142,7 @@ class CustomUniformCheckerViewSet(viewsets.GenericViewSet):
 
         if filter_type == 'previous':
             if not training_state or not training_state.last_trained_id:
-                return Response({'message': 'No training data available'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'message': 'No dataset available'}, status=status.HTTP_404_NOT_FOUND)
             queryset = DataSet.objects.filter(id__lte=training_state.last_trained_id.id)
 
         elif filter_type == 'new':
